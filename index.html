@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PythPredict — Price Prediction Game</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#04040a;--card:#0d0d16;--card2:#13131e;
+  --border:rgba(255,255,255,0.07);
+  --up:#00e5a0;--dn:#ff3b5c;--gold:#f5a623;--blue:#4f8fff;
+  --text:#f0f0fa;--muted:#52526e;
+  --mono:'DM Mono',monospace;--display:'Syne',sans-serif;
+}
+html,body{width:100%;min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--mono);overflow-x:hidden}
+
+/* BG */
+body::before{content:’’;position:fixed;inset:0;pointer-events:none;z-index:0;
+background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(79,143,255,0.07) 0%,transparent 60%),
+radial-gradient(ellipse 40% 30% at 10% 90%,rgba(0,229,160,0.05) 0%,transparent 50%),
+radial-gradient(ellipse 40% 30% at 90% 90%,rgba(255,59,92,0.05) 0%,transparent 50%)}
+
+/* HEADER */
+header{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;
+padding:0 20px;height:56px;background:rgba(4,4,10,0.92);
+border-bottom:1px solid var(–border);backdrop-filter:blur(20px)}
+.logo{font-family:var(–display);font-size:16px;font-weight:900;letter-spacing:-0.5px}
+.logo span{color:var(–blue)}
+.logo-sub{font-size:8px;color:var(–muted);letter-spacing:2px;margin-top:1px}
+.score-pill{display:flex;align-items:center;gap:10px}
+.score-item{text-align:center}
+.score-n{font-family:var(–display);font-size:18px;font-weight:800}
+.score-l{font-size:7px;letter-spacing:2px;color:var(–muted);text-transform:uppercase}
+
+/* ASSET SELECTOR */
+.asset-bar{display:flex;gap:6px;padding:12px 20px;border-bottom:1px solid var(–border);
+overflow-x:auto;background:rgba(13,13,22,0.8)}
+.asset-bar::-webkit-scrollbar{display:none}
+.asset-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;
+border:1px solid var(–border);background:transparent;color:var(–muted);
+font-family:var(–mono);font-size:10px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.asset-btn img{width:18px;height:18px;border-radius:50%}
+.asset-btn.active{border-color:var(–blue);color:var(–blue);background:rgba(79,143,255,0.1)}
+.asset-btn:hover{border-color:rgba(255,255,255,.2);color:var(–text)}
+
+/* MAIN GAME AREA */
+.game-wrap{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:20px}
+
+/* PRICE DISPLAY */
+.price-display{text-align:center;padding:28px 20px;
+background:var(–card);border:1px solid var(–border);border-radius:16px;margin-bottom:16px;
+position:relative;overflow:hidden}
+.price-display::before{content:’’;position:absolute;inset:0;
+background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(79,143,255,0.06),transparent);
+pointer-events:none}
+.asset-name{font-size:10px;letter-spacing:3px;color:var(–muted);text-transform:uppercase;margin-bottom:8px}
+.current-price{font-family:var(–display);font-size:clamp(36px,8vw,56px);font-weight:900;
+letter-spacing:-2px;margin-bottom:6px;transition:color .3s}
+.price-change{font-size:12px;margin-bottom:14px;height:18px}
+.price-change.up{color:var(–up)}.price-change.dn{color:var(–dn)}.price-change.flat{color:var(–muted)}
+
+/* CHART */
+.chart-wrap{height:80px;margin-bottom:4px;position:relative}
+.chart-wrap svg{width:100%;height:100%}
+.chart-label{display:flex;justify-content:space-between;font-size:8px;color:var(–muted)}
+
+/* ENTRY PRICE */
+.entry-row{display:flex;justify-content:space-between;align-items:center;
+padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:6px;margin-top:8px;font-size:10px}
+.entry-l{color:var(–muted);letter-spacing:1px}
+.entry-v{font-weight:600;color:var(–blue)}
+
+/* TIMER */
+.timer-wrap{text-align:center;margin-bottom:16px}
+.timer-ring{position:relative;width:80px;height:80px;margin:0 auto 8px}
+.timer-ring svg{transform:rotate(-90deg)}
+.timer-circle{transition:stroke-dashoffset .1s linear;stroke-linecap:round}
+.timer-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+font-family:var(–display);font-size:22px;font-weight:900}
+.timer-label{font-size:9px;letter-spacing:2px;color:var(–muted)}
+
+/* PREDICTION BUTTONS */
+.pred-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.pred-btn{padding:20px;border-radius:12px;border:2px solid;cursor:pointer;
+font-family:var(–display);font-size:22px;font-weight:900;letter-spacing:1px;
+transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:4px;
+position:relative;overflow:hidden}
+.pred-btn::before{content:’’;position:absolute;inset:0;opacity:0;transition:opacity .2s}
+.pred-btn:hover::before{opacity:1}
+.pred-up{border-color:rgba(0,229,160,.4);background:rgba(0,229,160,.07);color:var(–up)}
+.pred-up::before{background:rgba(0,229,160,.08)}
+.pred-up:hover{border-color:var(–up);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,229,160,.2)}
+.pred-dn{border-color:rgba(255,59,92,.4);background:rgba(255,59,92,.07);color:var(–dn)}
+.pred-dn::before{background:rgba(255,59,92,.08)}
+.pred-dn:hover{border-color:var(–dn);transform:translateY(-2px);box-shadow:0 8px 32px rgba(255,59,92,.2)}
+.pred-btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+.pred-btn.selected-up{border-color:var(–up);background:rgba(0,229,160,.15);box-shadow:0 0 30px rgba(0,229,160,.2)}
+.pred-btn.selected-dn{border-color:var(–dn);background:rgba(255,59,92,.15);box-shadow:0 0 30px rgba(255,59,92,.2)}
+.pred-sub{font-size:10px;font-weight:400;font-family:var(–mono);color:inherit;opacity:.7;letter-spacing:1px}
+
+/* RESULT OVERLAY */
+.result-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+background:rgba(0,0,0,.85);backdrop-filter:blur(12px)}
+.result-overlay.show{display:flex}
+.result-card{background:var(–card);border:1px solid var(–border);border-radius:20px;
+padding:32px 28px;text-align:center;width:90%;max-width:340px;
+animation:popIn .4s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes popIn{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
+.result-emoji{font-size:64px;margin-bottom:12px;display:block}
+.result-title{font-family:var(–display);font-size:28px;font-weight:900;margin-bottom:6px}
+.result-sub{font-size:11px;color:var(–muted);line-height:1.8;margin-bottom:20px}
+.result-pts{font-family:var(–display);font-size:20px;font-weight:800;margin-bottom:20px}
+.play-again{width:100%;padding:14px;border-radius:10px;border:none;
+background:linear-gradient(135deg,var(–blue),#7c5cfc);
+color:white;font-family:var(–display);font-size:14px;font-weight:800;
+letter-spacing:2px;cursor:pointer;transition:all .2s}
+.play-again:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(79,143,255,.4)}
+
+/* LEADERBOARD / HISTORY */
+.history-wrap{background:var(–card);border:1px solid var(–border);border-radius:12px;
+padding:16px;margin-top:0}
+.history-head{font-family:var(–display);font-size:11px;font-weight:700;letter-spacing:1px;
+margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.history-clear{font-size:9px;color:var(–muted);background:none;border:1px solid var(–border);
+padding:3px 10px;border-radius:3px;cursor:pointer;font-family:var(–mono)}
+.history-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;
+background:rgba(255,255,255,.02);margin-bottom:4px;font-size:10px}
+.history-item:last-child{margin:0}
+.hi-result{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;
+justify-content:center;font-size:11px;flex-shrink:0}
+.hi-win{background:rgba(0,229,160,.15)}.hi-lose{background:rgba(255,59,92,.15)}
+.hi-info{flex:1}
+.hi-asset{font-weight:600}
+.hi-detail{color:var(–muted);font-size:9px;margin-top:1px}
+.hi-pts{font-family:var(–display);font-size:13px;font-weight:700}
+.hi-pts.win{color:var(–up)}.hi-pts.lose{color:var(–dn)}
+
+.empty-hist{text-align:center;padding:20px;color:var(–muted);font-size:10px;line-height:1.8}
+
+/* STREAK */
+.streak-bar{display:flex;justify-content:center;gap:4px;margin-bottom:16px}
+.streak-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.1);transition:all .3s}
+.streak-dot.win{background:var(–up);box-shadow:0 0 8px var(–up)}
+.streak-dot.lose{background:var(–dn);box-shadow:0 0 8px var(–dn)}
+
+/* STATE: waiting/active/result */
+.state-label{text-align:center;font-size:9px;letter-spacing:3px;color:var(–muted);
+text-transform:uppercase;margin-bottom:12px}
+
+/* PYTH BADGE */
+.pyth-badge{display:flex;align-items:center;gap:5px;justify-content:center;
+font-size:8px;letter-spacing:1.5px;color:var(–muted);margin-top:6px}
+.pyth-dot{width:5px;height:5px;border-radius:50%;background:var(–up);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Pyth<span>Predict</span></div>
+    <div class="logo-sub">Price Prediction Game</div>
+  </div>
+  <div class="score-pill">
+    <div class="score-item">
+      <div class="score-n" id="scoreTotal" style="color:var(--gold)">0</div>
+      <div class="score-l">Points</div>
+    </div>
+    <div class="score-item">
+      <div class="score-n" id="scoreStreak" style="color:var(--up)">0</div>
+      <div class="score-l">Streak</div>
+    </div>
+    <div class="score-item">
+      <div class="score-n" id="scoreWins" style="color:var(--blue)">0</div>
+      <div class="score-l">Wins</div>
+    </div>
+  </div>
+</header>
+
+<!-- ASSET SELECTOR -->
+
+<div class="asset-bar" id="assetBar"></div>
+
+<div class="game-wrap">
+
+  <!-- STREAK DOTS -->
+
+  <div class="streak-bar" id="streakBar"></div>
+
+  <!-- PRICE DISPLAY -->
+
+  <div class="price-display">
+    <div class="asset-name" id="assetName">BTC / USD</div>
+    <div class="current-price" id="currentPrice">$—</div>
+    <div class="price-change flat" id="priceChange">Loading...</div>
+    <div class="chart-wrap">
+      <svg id="chartSvg" viewBox="0 0 300 80" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path id="chartFill" fill="url(#chartGrad)"/>
+        <polyline id="chartLine" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="chart-label"><span id="chartLabelL">—</span><span id="chartLabelR">NOW</span></div>
+    <div class="entry-row" id="entryRow" style="display:none">
+      <span class="entry-l">YOUR ENTRY PRICE</span>
+      <span class="entry-v" id="entryPrice">—</span>
+    </div>
+    <div class="pyth-badge"><div class="pyth-dot"></div><span>POWERED BY PYTH NETWORK</span></div>
+  </div>
+
+  <!-- TIMER -->
+
+  <div class="timer-wrap" id="timerWrap" style="display:none">
+    <div class="timer-ring">
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+        <circle class="timer-circle" id="timerCircle" cx="40" cy="40" r="34"
+          fill="none" stroke="var(--blue)" stroke-width="5"
+          stroke-dasharray="213.6" stroke-dashoffset="0"/>
+      </svg>
+      <div class="timer-num" id="timerNum">60</div>
+    </div>
+    <div class="timer-label">SECONDS REMAINING</div>
+  </div>
+
+  <!-- STATE LABEL -->
+
+  <div class="state-label" id="stateLabel">Choose your prediction</div>
+
+  <!-- PREDICTION BUTTONS -->
+
+  <div class="pred-btns">
+    <button class="pred-btn pred-up" id="btnUp" onclick="predict('up')">
+      ▲
+      <span class="pred-sub">PRICE GOES UP</span>
+    </button>
+    <button class="pred-btn pred-dn" id="btnDn" onclick="predict('down')">
+      ▼
+      <span class="pred-sub">PRICE GOES DOWN</span>
+    </button>
+  </div>
+
+  <!-- HISTORY -->
+
+  <div class="history-wrap">
+    <div class="history-head">
+      ROUND HISTORY
+      <button class="history-clear" onclick="clearHistory()">CLEAR</button>
+    </div>
+    <div id="historyList"><div class="empty-hist">No rounds played yet.<br>Make your first prediction above!</div></div>
+  </div>
+
+</div>
+
+<!-- RESULT OVERLAY -->
+
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-card">
+    <span class="result-emoji" id="resultEmoji">🎯</span>
+    <div class="result-title" id="resultTitle">—</div>
+    <div class="result-sub" id="resultSub">—</div>
+    <div class="result-pts" id="resultPts">—</div>
+    <button class="play-again" onclick="newRound()">PLAY AGAIN →</button>
+  </div>
+</div>
+
+<script>
+// ═══ ASSETS ═══
+var ASSETS = [
+  {sym:'BTC', id:'0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43', logo:'https://assets.coingecko.com/coins/images/1/small/bitcoin.png'},
+  {sym:'ETH', id:'0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace', logo:'https://assets.coingecko.com/coins/images/279/small/ethereum.png'},
+  {sym:'SOL', id:'0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d', logo:'https://assets.coingecko.com/coins/images/4128/small/solana.png'},
+  {sym:'BNB', id:'0x2f95862b045670cd22bee3114c39763a4a08beeb663b145d283c31d7d1101c4f', logo:'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png'},
+  {sym:'AVAX', id:'0x93da3352f9f1d105fdfe4971cfa80e9dd777bfc5d0f683ebb6e1294b92137bb7', logo:'https://assets.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png'},
+  {sym:'LINK', id:'0x8ac0c70fff57e9aefdf5edf44b51d62c2d433653cbb2cf5cc06bb115af04d221', logo:'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png'},
+  {sym:'SUI',  id:'0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744', logo:'https://assets.coingecko.com/coins/images/26375/small/sui_asset.jpeg'},
+  {sym:'XRP',  id:'0xec5d399846a9209f3fe5881d70aae9268c94339ff9817e8d18ff19fa05eea1c8', logo:'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png'},
+];
+
+// ═══ STATE ═══
+var currentAsset = ASSETS[0];
+var currentPrice = 0, prevPrice = 0;
+var priceHistory = [];
+var entryPrice = 0;
+var prediction = null; // 'up' | 'down'
+var gameState = 'idle'; // idle | active | result
+var timerSecs = 60;
+var timerInterval = null;
+var fetchInterval = null;
+
+var score = 0, streak = 0, wins = 0, totalRounds = 0;
+var streakHistory = []; // true/false for last 7
+var roundHistory = [];
+
+// ═══ INIT ASSET BAR ═══
+function initAssetBar() {
+  var bar = document.getElementById('assetBar');
+  bar.innerHTML = ASSETS.map(function(a) {
+    return '<button class="asset-btn'+(a.sym===currentAsset.sym?' active':'')+'" onclick="selectAsset(\''+a.sym+'\')">'
+      +'<img src="'+a.logo+'" onerror="this.style.display=\'none\'">'+a.sym+'</button>';
+  }).join('');
+}
+
+function selectAsset(sym) {
+  if(gameState === 'active') return;
+  currentAsset = ASSETS.find(function(a){return a.sym===sym;});
+  priceHistory = [];
+  currentPrice = 0;
+  document.getElementById('assetName').textContent = sym + ' / USD';
+  document.querySelectorAll('.asset-btn').forEach(function(b){b.classList.remove('active');});
+  event.target.closest('.asset-btn').classList.add('active');
+  fetchPrice();
+  resetState();
+}
+
+// ═══ FETCH PRICE ═══
+async function fetchPrice() {
+  try {
+    var url = 'https://hermes.pyth.network/v2/updates/price/latest?ids[]=' + currentAsset.id + '&parsed=true';
+    var r = await fetch(url, {signal: AbortSignal.timeout(5000)});
+    if(!r.ok) return;
+    var d = await r.json();
+    if(!d.parsed || !d.parsed[0]) return;
+    var item = d.parsed[0];
+    var p = item.price.price * Math.pow(10, item.price.expo);
+    prevPrice = currentPrice || p;
+    currentPrice = p;
+    priceHistory.push(p);
+    if(priceHistory.length > 60) priceHistory.shift();
+    updatePriceDisplay();
+    updateChart();
+  } catch(e) {}
+}
+
+// ═══ DISPLAY ═══
+function fmtPrice(p) {
+  if(p >= 10000) return '$' + p.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  if(p >= 100) return '$' + p.toFixed(2);
+  if(p >= 1) return '$' + p.toFixed(4);
+  return '$' + p.toFixed(5);
+}
+
+function updatePriceDisplay() {
+  var el = document.getElementById('currentPrice');
+  var chEl = document.getElementById('priceChange');
+  el.textContent = fmtPrice(currentPrice);
+
+  if(!prevPrice || prevPrice === currentPrice) {
+    chEl.textContent = '— No change';
+    chEl.className = 'price-change flat';
+    el.style.color = 'var(--text)';
+    return;
+  }
+  var chg = (currentPrice - prevPrice) / prevPrice * 100;
+  var dir = chg > 0;
+  chEl.textContent = (dir ? '▲ +' : '▼ ') + chg.toFixed(4) + '%';
+  chEl.className = 'price-change ' + (dir ? 'up' : 'dn');
+  el.style.color = dir ? 'var(--up)' : 'var(--dn)';
+  // Flash
+  el.style.transform = 'scale(1.04)';
+  setTimeout(function(){el.style.transform='scale(1)';el.style.transition='transform .2s';},150);
+}
+
+function updateChart() {
+  if(priceHistory.length < 2) return;
+  var mn = Math.min.apply(null, priceHistory) * 0.9999;
+  var mx = Math.max.apply(null, priceHistory) * 1.0001;
+  var range = mx - mn || 1;
+  var W = 300, H = 80;
+
+  var pts = priceHistory.map(function(v, i) {
+    var x = (i / (priceHistory.length - 1)) * W;
+    var y = H - ((v - mn) / range) * (H - 8) - 4;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+
+  // Fill path
+  var firstX = 0, lastX = W;
+  var firstPt = pts.split(' ')[0];
+  var lastPt = pts.split(' ').pop();
+  var fillPts = firstPt + ' ' + pts + ' ' + lastX + ',' + H + ' ' + firstX + ',' + H;
+
+  // Color based on direction
+  var isUp = priceHistory[priceHistory.length-1] >= priceHistory[0];
+  var color = isUp ? 'var(--up)' : 'var(--dn)';
+  document.getElementById('chartLine').setAttribute('points', pts);
+  document.getElementById('chartLine').setAttribute('stroke', color);
+  document.getElementById('chartFill').setAttribute('d', 'M ' + fillPts.split(' ').join(' L ') + ' Z');
+  document.querySelector('#chartGrad stop:first-child').setAttribute('stop-color', isUp ? '#00e5a0' : '#ff3b5c');
+
+  // Entry line if active
+  if(gameState === 'active' && entryPrice) {
+    var entryY = H - ((entryPrice - mn) / range) * (H - 8) - 4;
+    var existingLine = document.getElementById('entryLine');
+    if(!existingLine) {
+      var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.id = 'entryLine';
+      line.setAttribute('stroke', 'rgba(245,166,35,0.6)');
+      line.setAttribute('stroke-width', '1');
+      line.setAttribute('stroke-dasharray', '4,3');
+      document.getElementById('chartSvg').insertBefore(line, document.getElementById('chartLine'));
+    }
+    document.getElementById('entryLine').setAttribute('x1', '0');
+    document.getElementById('entryLine').setAttribute('x2', W);
+    document.getElementById('entryLine').setAttribute('y1', entryY.toFixed(1));
+    document.getElementById('entryLine').setAttribute('y2', entryY.toFixed(1));
+  }
+
+  document.getElementById('chartLabelL').textContent = fmtPrice(mn);
+}
+
+// ═══ GAME LOGIC ═══
+function predict(dir) {
+  if(gameState === 'active' || !currentPrice) return;
+  prediction = dir;
+  entryPrice = currentPrice;
+  gameState = 'active';
+
+  // Update UI
+  document.getElementById('btnUp').classList.toggle('selected-up', dir === 'up');
+  document.getElementById('btnDn').classList.toggle('selected-dn', dir === 'down');
+  document.getElementById('btnUp').disabled = true;
+  document.getElementById('btnDn').disabled = true;
+  document.getElementById('entryRow').style.display = 'flex';
+  document.getElementById('entryPrice').textContent = fmtPrice(entryPrice);
+  document.getElementById('timerWrap').style.display = 'block';
+  document.getElementById('stateLabel').textContent = dir === 'up' ? '📈 Predicted UP — waiting for result...' : '📉 Predicted DOWN — waiting for result...';
+
+  startTimer();
+}
+
+function startTimer() {
+  timerSecs = 60;
+  updateTimer();
+  timerInterval = setInterval(function() {
+    timerSecs--;
+    updateTimer();
+    if(timerSecs <= 0) {
+      clearInterval(timerInterval);
+      resolveRound();
+    }
+  }, 1000);
+}
+
+function updateTimer() {
+  var pct = timerSecs / 60;
+  var circumference = 213.6;
+  var offset = circumference * (1 - pct);
+  document.getElementById('timerCircle').style.strokeDashoffset = offset;
+  document.getElementById('timerNum').textContent = timerSecs;
+  // Color changes as time runs out
+  var color = timerSecs > 20 ? 'var(--blue)' : timerSecs > 10 ? 'var(--gold)' : 'var(--dn)';
+  document.getElementById('timerCircle').style.stroke = color;
+  document.getElementById('timerNum').style.color = color;
+}
+
+function resolveRound() {
+  var finalPrice = currentPrice;
+  var won = prediction === 'up' ? finalPrice > entryPrice : finalPrice < entryPrice;
+  var priceDiff = finalPrice - entryPrice;
+  var pctChange = Math.abs(priceDiff / entryPrice * 100);
+
+  // Points: base 100, bonus for bigger moves and streaks
+  var pts = 0;
+  if(won) {
+    pts = Math.round(100 + pctChange * 500 + streak * 20);
+    score += pts;
+    streak++;
+    wins++;
+    streakHistory.push(true);
+  } else {
+    pts = -Math.round(50 + streak * 10);
+    score = Math.max(0, score + pts);
+    streak = 0;
+    streakHistory.push(false);
+  }
+  if(streakHistory.length > 7) streakHistory.shift();
+  totalRounds++;
+
+  // Record history
+  roundHistory.unshift({
+    won, sym: currentAsset.sym, prediction,
+    entry: entryPrice, final: finalPrice,
+    pct: pctChange, pts: won ? pts : pts,
+  });
+  if(roundHistory.length > 10) roundHistory.pop();
+
+  updateScoreDisplay();
+  updateStreakBar();
+  updateHistory();
+  showResult(won, finalPrice, pctChange, pts);
+  gameState = 'result';
+}
+
+function showResult(won, finalPrice, pct, pts) {
+  var emoji = won
+    ? (streak > 2 ? '🔥' : '🎯')
+    : (streak === 0 ? '😤' : '💔');
+  var title = won ? 'CORRECT!' : 'WRONG!';
+  var priceDiff = finalPrice - entryPrice;
+  var dir = priceDiff >= 0 ? '▲' : '▼';
+  var sub = currentAsset.sym + ' went ' + dir + ' ' + pct.toFixed(4) + '%\n'
+    + 'Entry: ' + fmtPrice(entryPrice) + ' → Final: ' + fmtPrice(finalPrice);
+  var ptsStr = won
+    ? '+' + pts + ' POINTS' + (streak > 1 ? ' 🔥 ×' + streak + ' streak!' : '')
+    : pts + ' POINTS';
+
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultTitle').style.color = won ? 'var(--up)' : 'var(--dn)';
+  document.getElementById('resultSub').textContent = sub;
+  document.getElementById('resultPts').textContent = ptsStr;
+  document.getElementById('resultPts').style.color = won ? 'var(--up)' : 'var(--dn)';
+  document.getElementById('resultOverlay').classList.add('show');
+}
+
+function newRound() {
+  document.getElementById('resultOverlay').classList.remove('show');
+  resetState();
+}
+
+function resetState() {
+  gameState = 'idle';
+  prediction = null;
+  entryPrice = 0;
+  clearInterval(timerInterval);
+
+  document.getElementById('btnUp').disabled = false;
+  document.getElementById('btnDn').disabled = false;
+  document.getElementById('btnUp').classList.remove('selected-up');
+  document.getElementById('btnDn').classList.remove('selected-dn');
+  document.getElementById('entryRow').style.display = 'none';
+  document.getElementById('timerWrap').style.display = 'none';
+  document.getElementById('stateLabel').textContent = 'Choose your prediction';
+  document.getElementById('timerNum').textContent = '60';
+  document.getElementById('timerCircle').style.strokeDashoffset = '0';
+
+  // Remove entry line from chart
+  var el = document.getElementById('entryLine');
+  if(el) el.remove();
+}
+
+// ═══ UI UPDATES ═══
+function updateScoreDisplay() {
+  document.getElementById('scoreTotal').textContent = score;
+  document.getElementById('scoreStreak').textContent = streak;
+  document.getElementById('scoreWins').textContent = wins;
+}
+
+function updateStreakBar() {
+  var html = '';
+  for(var i=0; i<7; i++) {
+    var s = i < streakHistory.length ? (streakHistory[streakHistory.length-7+i] ? 'win' : 'lose') : '';
+    html += '<div class="streak-dot '+s+'"></div>';
+  }
+  document.getElementById('streakBar').innerHTML = html;
+}
+
+function updateHistory() {
+  if(!roundHistory.length) {
+    document.getElementById('historyList').innerHTML = '<div class="empty-hist">No rounds played yet.<br>Make your first prediction above!</div>';
+    return;
+  }
+  document.getElementById('historyList').innerHTML = roundHistory.map(function(r) {
+    var dir = r.final >= r.entry ? '▲' : '▼';
+    return '<div class="history-item">'
+      +'<div class="hi-result '+(r.won?'hi-win':'hi-lose')+'">'+(r.won?'✓':'✗')+'</div>'
+      +'<div class="hi-info">'
+        +'<div class="hi-asset">'+r.sym+'/USD — Predicted '+(r.prediction==='up'?'UP ▲':'DOWN ▼')+'</div>'
+        +'<div class="hi-detail">'+fmtPrice(r.entry)+' '+dir+' '+fmtPrice(r.final)+' ('+r.pct.toFixed(3)+'%)</div>'
+      +'</div>'
+      +'<div class="hi-pts '+(r.won?'win':'lose')+'">'+(r.won?'+':'')+r.pts+'</div>'
+    +'</div>';
+  }).join('');
+}
+
+function clearHistory() {
+  roundHistory = [];
+  score = 0; streak = 0; wins = 0; totalRounds = 0;
+  streakHistory = [];
+  updateScoreDisplay();
+  updateStreakBar();
+  updateHistory();
+}
+
+// ═══ INIT ═══
+initAssetBar();
+updateStreakBar();
+updateHistory();
+fetchPrice();
+fetchInterval = setInterval(fetchPrice, 3000); // update every 3s for snappier feel
+</script>
+
+</body>
+</html>
